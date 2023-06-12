@@ -3,9 +3,11 @@
 #    Copyright 2023 奇客罗方智能科技 https://www.geekercloud.com
 #    ITGeeker.net <alanljj@gmail.com>
 ############################################################################
+import base64
 import glob
 import json
 import os
+import tempfile
 import tkinter as tk
 from tkinter import ttk
 import tkinter.filedialog
@@ -94,7 +96,7 @@ class AppConvertDoc(ttk.Frame):
         print('cur_usr_path: %s' % cur_usr_path)
         json_ffp = os.path.join(cur_usr_path, 'itgeeker_convert_doc_to_docx.json')
         if not os.path.isfile(json_ffp):
-            with open(json_ffp, 'w') as fp:
+            with open(json_ffp, 'w', encoding='utf-8') as fp:
                 pass
             return False
         return json_ffp
@@ -149,6 +151,7 @@ class AppConvertDoc(ttk.Frame):
             ffp_d.update({
                 'include_sub_dir': True
             })
+
         print('ffp_d: ', ffp_d)
         with open(json_ffp, 'w', encoding='utf-8') as ffp:
             file_list = []
@@ -244,7 +247,6 @@ class AppConvertDoc(ttk.Frame):
         self.entry_path.insert(0, "浏览并选择目录")
         # self.entry_path.bind("<FocusIn>", lambda e: self.entry_path.delete('0', 'end'))
         # self.entry_path.focus_force()
-        # self.entry_path.pack(padx=10, pady=10, side=TOP, ipadx=30, ipady=6)
         self.entry_path.grid(row=0, column=0, columnspan=3, padx=10, pady=10)
 
         browse_button = ttk.Button(mnplt_frame, text="选择目录", command=self.select_directory)
@@ -346,7 +348,18 @@ class AppConvertDoc(ttk.Frame):
 
 
 if __name__ == "__main__":
+    icon_b64 = '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'
+    icondata = base64.b64decode(icon_b64)
+    tmp_p = tempfile.gettempdir()
+    tempFile = os.path.join(tmp_p, "icon.ico")
+    iconfile = open(tempFile, "wb")
+    iconfile.write(icondata)
+    iconfile.close()
+
     geekerWin = tk.Tk()
+    geekerWin.wm_iconbitmap(tempFile)
+    ## Delete the tempfile
+    os.remove(tempFile)
 
     style = ttk.Style(geekerWin)
     geekerWin.tk.call("source", "forest-light.tcl")
@@ -366,7 +379,7 @@ if __name__ == "__main__":
     geekerWin.geometry(f'{window_width}x{window_height}+{left}+{top}')
 
     # geekerWin.iconbitmap(default=r'geekercloud_orange32.ico')
-    geekerWin.iconbitmap(default=r'D:\git_geeker\geeker_pyinstaller\geekercloud_orange32.ico')
+    # geekerWin.iconbitmap(default=r'D:\git_geeker\geeker_pyinstaller\geekercloud_orange32.ico')
 
     geekerWin.title("技术奇客小工具-Office Word旧格式(.doc)转换为新格式(.docx)")
 
