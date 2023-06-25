@@ -21,6 +21,7 @@ class AppConvertDoc(ttk.Frame):
 
     def __init__(self, master):
         super().__init__(master)
+        self.label_file_nmb = None
         self.checkbutton = None
         self.include_sub_dir = None
         self.treeview = None
@@ -87,6 +88,9 @@ class AppConvertDoc(ttk.Frame):
                 files.append(tuple([basename, dirname]))
         self.treeview.delete(*self.treeview.get_children())
         if files:
+            item_count = len(files)
+            print('item_count: ', item_count)
+            self.label_file_nmb.config(text='文件数：' + str(item_count))
             # self.treeview.delete(*self.treeview.get_children())
             for file_tuple in files:
                 self.treeview.insert('', tk.END, values=file_tuple)
@@ -96,8 +100,10 @@ class AppConvertDoc(ttk.Frame):
         print('cur_usr_path: %s' % cur_usr_path)
         json_ffp = os.path.join(cur_usr_path, 'itgeeker_convert_doc_to_docx.json')
         if not os.path.isfile(json_ffp):
+            ffp_d = dict()
             with open(json_ffp, 'w', encoding='utf-8') as fp:
-                pass
+                fp.write(json.dumps(ffp_d, indent=4, ensure_ascii=False))
+                # pass
             return False
         return json_ffp
 
@@ -125,14 +131,25 @@ class AppConvertDoc(ttk.Frame):
             val_list = self.get_all_item_list()
             if val_list:
                 self.save_all_item_to_json(val_list)
-                finished_nmb = convert_doc2docx_by_win32com(val_list)
-                if finished_nmb:
-                    tk.messagebox.showinfo(title="任务通知",
-                                           message="任务已圆满完成！共处理了%s个文件\n"
-                                                   "转换后的.docx文件保存在源文件相同目录，文件名带有-converted字样。"
-                                                   % str(finished_nmb))
-                else:
-                    tk.messagebox.showerror(title="任务错误通知", message="任务完成，但有错误！")
+                success_l, failed_l = convert_doc2docx_by_win32com(val_list)
+                success_nmb = len(success_l)
+                failed_nmb = len(failed_l)
+                msg_str = "任务已圆满完成！成功处理了%s个文件，%s个文件处理失败\n" \
+                          "转换后的.docx文件保存在源文件相同目录，文件名带有-converted字样。" % (str(success_nmb), str(failed_nmb))
+                if failed_l:
+                    msg_str += "\n本次失败的文件：\n%s" % '\n'.join(x for x in failed_l)
+                tk.messagebox.showinfo(title="任务通知", message=msg_str)
+                # tk.messagebox.showinfo(title="任务通知",
+                #                        message="任务已圆满完成！成功处理了%s个文件，%s个文件处理失败\n"
+                #                                "转换后的.docx文件保存在源文件相同目录，文件名带有-converted字样。"
+                #                                % (str(success_nmb), str(failed_nmb)))
+                if failed_l:
+                    cur_usr_path = os.environ['USERPROFILE']
+                    failed_ffp = os.path.join(cur_usr_path, 'itgeeker_convert_doc_failed_files.json')
+                    with open(failed_ffp, 'w', encoding='utf-8') as ff:
+                        failed_d = dict()
+                        failed_d['convert_failed_files'] = failed_l
+                        ff.write(json.dumps(failed_d, indent=4, ensure_ascii=False))
             else:
                 tk.messagebox.showwarning(title="操作提醒", message="请选择要转换的文件，可按住Ctrl多选！")
 
@@ -151,6 +168,13 @@ class AppConvertDoc(ttk.Frame):
             ffp_d.update({
                 'include_sub_dir': True
             })
+
+        ffp_d['label_file_nmb'] = False
+        lfn_str = self.label_file_nmb.cget("text")
+        print('lfn_str: ', lfn_str)
+        if '：' in lfn_str:
+            fnmb = lfn_str.split('：')[1]
+            ffp_d['label_file_nmb'] = int(fnmb)
 
         print('ffp_d: ', ffp_d)
         with open(json_ffp, 'w', encoding='utf-8') as ffp:
@@ -204,13 +228,10 @@ class AppConvertDoc(ttk.Frame):
             if 'include_sub_dir' in dt_dict:
                 print('include_sub_dir: ', dt_dict['include_sub_dir'])
                 self.include_sub_dir.set(dt_dict['include_sub_dir'])
-
-                # if dt_dict['include_sub_dir']:
-                #     self.include_sub_dir.set(dt_dict['include_sub_dir'])
-                #     self.checkbutton = self.include_sub_dir
-                # else:
-                #     self.include_sub_dir.set(0)
-                #     self.checkbutton = self.include_sub_dir
+            if 'label_file_nmb' in dt_dict:
+                # print('label_file_nmb: ', dt_dict['label_file_nmb'])
+                if dt_dict['label_file_nmb']:
+                    self.label_file_nmb.config(text='文件数：' + str(dt_dict['label_file_nmb']))
 
     def select_directory(self):
         directory = tk.filedialog.askdirectory()
@@ -274,9 +295,13 @@ class AppConvertDoc(ttk.Frame):
         select_remove_btn.grid(row=0, column=2, padx=25, pady=5, ipadx=12, ipady=3, sticky="w")
 
         self.include_sub_dir = tk.BooleanVar()
-        self.checkbutton = ttk.Checkbutton(list_up_frame, text="包含子目录", variable=self.include_sub_dir,
+        self.checkbutton = ttk.Checkbutton(up_sub_fram, text="包含子目录", variable=self.include_sub_dir,
                                            command=lambda: self.check_sub_dir())
-        self.checkbutton.grid(row=0, column=3, padx=5, pady=5, sticky="nsew")
+        self.checkbutton.grid(row=0, column=3, padx=5, pady=5, sticky="w")
+
+        self.label_file_nmb = tk.Label(up_sub_fram, text='文件数')
+        self.label_file_nmb.config(font=('Microsoft YaHei UI', 10))
+        self.label_file_nmb.grid(row=0, column=4, padx=5, pady=5, sticky="w")
 
         # list_files_frame = ttk.LabelFrame(self, text="Word旧格式.doc文件, 可多选")
         list_files_frame = ttk.Frame(self)
@@ -359,7 +384,7 @@ if __name__ == "__main__":
     geekerWin = tk.Tk()
     geekerWin.wm_iconbitmap(tempFile)
     ## Delete the tempfile
-    os.remove(tempFile)
+    # os.remove(tempFile)
 
     style = ttk.Style(geekerWin)
     geekerWin.tk.call("source", "forest-light.tcl")
